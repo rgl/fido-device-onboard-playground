@@ -1,0 +1,109 @@
+services:
+  certificates:
+    build: ./certificates
+    working_dir: /etc/ssl/private
+    volumes:
+      - certificates:/etc/ssl/private
+
+  rendezvous:
+    build: ./server
+    hostname: rendezvous
+    depends_on:
+      certificates:
+        condition: service_completed_successfully
+    volumes:
+      - certificates:/etc/ssl/private:ro
+      - rendezvous:/var/run/fdo-rendezvous
+    command:
+      - rendezvous
+      - 0.0.0.0:8041
+      - --log-level=debug
+      - --db-type=sqlite
+      - --db-dsn=file:/var/run/fdo-rendezvous/rendezvous.sqlite
+    ports:
+      - 8041:8041
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8041/health >/dev/null"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
+
+  manufacturer:
+    build: ./server
+    hostname: manufacturer
+    depends_on:
+      certificates:
+        condition: service_completed_successfully
+    volumes:
+      - certificates:/etc/ssl/private:ro
+      - manufacturer:/var/run/fdo-manufacturer
+    command:
+      - manufacturing
+      - 0.0.0.0:8038
+      - --db-type=sqlite
+      - --db-dsn=file:/var/run/fdo-manufacturer/manufacturer.sqlite
+      - --manufacturing-key=/etc/ssl/private/manufacturer-key.der
+      - --device-ca-key=/etc/ssl/private/device-ca-key.der
+      - --device-ca-cert=/etc/ssl/private/device-ca-crt.pem
+      - --owner-cert=/etc/ssl/private/owner-crt.pem
+    ports:
+      - 8038:8038
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8038/health >/dev/null"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
+
+  owner:
+    build: ./server
+    hostname: owner
+    depends_on:
+      certificates:
+        condition: service_completed_successfully
+      rendezvous:
+        condition: service_healthy
+    volumes:
+      - certificates:/etc/ssl/private:ro
+      - owner:/var/run/fdo-owner
+      - ./owner.yaml:/etc/fdo-owner/owner.yaml:ro
+    command:
+      - owner
+      - 0.0.0.0:8043
+      - --config=/etc/fdo-owner/owner.yaml
+      - --log-level=debug
+      - --db-type=sqlite
+      - --db-dsn=file:/var/run/fdo-owner/owner.sqlite
+      - --device-ca-cert=/etc/ssl/private/device-ca-crt.pem
+      - --owner-key=/etc/ssl/private/owner-key.der
+    ports:
+      - 8043:8043
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8043/health >/dev/null"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
+
+  device:
+    build: ./device
+    hostname: device
+    depends_on:
+      rendezvous:
+        condition: service_healthy
+      manufacturer:
+        condition: service_healthy
+      owner:
+        condition: service_healthy
+    volumes:
+      - device:/device
+    ports:
+      - 8080:8080
+
+volumes:
+  certificates:
+  rendezvous:
+  manufacturer:
+  owner:
+  device:

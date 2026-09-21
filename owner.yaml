@@ -1,0 +1,18 @@
+# see https://github.com/fido-device-onboard/go-fdo-server/blob/v1.0.1/test/ci/test-fsim-config.sh
+owner:
+  service_info:
+    fsims:
+      # execute a command on the device and capture stdout and stderr to the owner service logs.
+      - fsim: fdo.command
+        params:
+          return_stdout: true
+          return_stderr: true
+          cmd: uname
+          args:
+            - -a
+      # copy a file from the device to the owner path at <dir>/<device-guid>/<file-src-filename>
+      - fsim: fdo.upload
+        params:
+          dir: /var/run/fdo-owner/device-files
+          files:
+            - src: /device/admin-password.txt

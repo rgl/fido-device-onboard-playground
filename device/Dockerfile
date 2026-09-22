@@ -1,9 +1,10 @@
 # syntax=docker.io/docker/dockerfile:1.27
 
-# see https://github.com/fido-device-onboard/go-fdo-client/releases
+# see https://github.com/fido-device-onboard/go-fdo-client
+# see https://github.com/fido-device-onboard/go-fdo-client/tree/0ccf734fefdb641e1dc5f3ccc9ad1e408edf71bd # 2026-07-28T15:49:42.000Z
 FROM golang:1.27.1-trixie AS build-fdo-client
 WORKDIR /src
-RUN curl -L https://github.com/fido-device-onboard/go-fdo-client/archive/refs/tags/v1.0.0.tar.gz | tar xz --strip-components=1
+RUN curl -L https://github.com/fido-device-onboard/go-fdo-client/archive/0ccf734fefdb641e1dc5f3ccc9ad1e408edf71bd.tar.gz | tar xz --strip-components=1
 RUN make build
 
 FROM golang:1.27.1-trixie AS build

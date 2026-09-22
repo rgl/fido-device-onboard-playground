@@ -2,7 +2,7 @@
 
 My [fido-device-onboard go-fdo-server](https://github.com/fido-device-onboard/go-fdo-server) Playground.
 
-**NB** This targets [go-fdo-server 1.0.1](https://github.com/fido-device-onboard/go-fdo-server/blob/v1.0.1/README.md).
+**NB** This targets [go-fdo-server a1dfe4cf17a8a4736bf4bd56644b900bc054a150 (2026-08-31T14:57:14.000Z)](https://github.com/fido-device-onboard/go-fdo-server/tree/a1dfe4cf17a8a4736bf4bd56644b900bc054a150).
 
 # Usage
 

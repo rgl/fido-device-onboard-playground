@@ -1,9 +1,28 @@
 # syntax=docker.io/docker/dockerfile:1.27
 
-# see https://github.com/fido-device-onboard/go-fdo-server/releases
+# see https://github.com/fido-device-onboard/go-fdo-server
+# see https://github.com/fido-device-onboard/go-fdo-server/tree/a1dfe4cf17a8a4736bf4bd56644b900bc054a150 # 2026-08-31T14:57:14.000Z
 FROM golang:1.27.1-trixie AS build
+RUN <<RUN_EOF
+#!/bin/bash
+set -euxo pipefail
+curl --fail --show-error https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key >/etc/apt/trusted.gpg.d/deb.nodesource.com.gpg
+# see https://wiki.debian.org/DebianRepository/Format
+# see node 24.x: https://deb.nodesource.com/node_24.x/dists/nodistro/Release
+# see node 24.x: https://deb.nodesource.com/node_24.x/dists/nodistro/main/binary-amd64/Packages
+cat >/etc/apt/sources.list.d/deb.nodesource.com.sources <<EOF
+Types: deb
+URIs: https://deb.nodesource.com/node_24.x
+Suites: nodistro
+Components: main
+Signed-By: /etc/apt/trusted.gpg.d/deb.nodesource.com.gpg
+EOF
+apt-get update
+apt-get install -y --no-install-recommends \
+    nodejs=24.21.0-*
+RUN_EOF
 WORKDIR /src
-RUN curl -L https://github.com/fido-device-onboard/go-fdo-server/archive/refs/tags/v1.0.1.tar.gz | tar xz --strip-components=1
+RUN curl -L https://github.com/fido-device-onboard/go-fdo-server/archive/a1dfe4cf17a8a4736bf4bd56644b900bc054a150.tar.gz | tar xz --strip-components=1
 RUN make build
 
 # see https://github.com/mmartinv/go-fdo-tool

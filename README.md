@@ -27,7 +27,7 @@ docker compose exec rendezvous \
     --silent \
     --show-error \
     --request POST \
-    http://rendezvous:8041/api/v1/device-ca \
+    http://rendezvous:8041/api/v2/device-ca \
     --header "Content-Type: application/x-pem-file" \
     --data-binary @/etc/ssl/private/device-ca-crt.pem
 docker compose exec rendezvous \
@@ -35,7 +35,7 @@ docker compose exec rendezvous \
     --silent \
     --show-error \
     --request GET \
-    http://rendezvous:8041/api/v1/device-ca \
+    http://rendezvous:8041/api/v2/device-ca \
     | jq
 ```
 
@@ -46,16 +46,16 @@ docker compose exec manufacturer \
     curl \
     --silent \
     --show-error \
-    -X POST  \
+    -X PUT  \
     -H 'Content-Type: application/json' \
-    -d '[{"protocol":"http","dns":"rendezvous","device_port":"8041","owner_port":"8041"}]' \
-    http://manufacturer:8038/api/v1/rvinfo
+    -d '[[{"protocol":"http"},{"dns":"rendezvous"},{"device_port":8041},{"owner_port":8041}]]' \
+    http://manufacturer:8038/api/v2/rvinfo
 docker compose exec manufacturer \
     curl \
     --silent \
     --show-error \
     -X GET \
-    http://manufacturer:8038/api/v1/rvinfo \
+    http://manufacturer:8038/api/v2/rvinfo \
     | jq
 ```
 
@@ -66,16 +66,16 @@ docker compose exec owner \
     curl \
     --silent \
     --show-error \
-    --request POST \
-    http://owner:8043/api/v1/owner/redirect \
+    --request PUT \
+    http://owner:8043/api/v2/rvto2addr \
     --header 'Content-Type: application/json' \
-    --data-raw '[{"protocol":"http","dns":"owner","port":"8043"}]'
+    --data-raw '[{"protocol":"http","dns":"owner","port":8043}]'
 docker compose exec owner \
     curl \
     --silent \
     --show-error \
     --request GET \
-    http://owner:8043/api/v1/owner/redirect \
+    http://owner:8043/api/v2/rvto2addr \
     | jq
 ```
 
@@ -107,8 +107,20 @@ successfully before the device can be onboarded.
 
 ```bash
 DEVICE_VOUCHER="$(docker compose exec manufacturer \
-    curl --silent --show-error --request GET \
-    "http://manufacturer:8038/api/v1/vouchers/$DEVICE_GUID")"
+    curl \
+        --silent \
+        --show-error \
+        --request GET \
+        --header 'Accept: application/x-pem-file' \
+        "http://manufacturer:8038/api/v2/vouchers/$DEVICE_GUID")"
+docker compose exec manufacturer \
+    curl \
+        --silent \
+        --show-error \
+        --request GET \
+        --header 'Accept: application/json' \
+        "http://manufacturer:8038/api/v2/vouchers/$DEVICE_GUID" \
+        | jq
 docker compose exec --no-tty manufacturer \
     go-fdo-tool \
     voucher \
@@ -116,9 +128,13 @@ docker compose exec --no-tty manufacturer \
     /dev/stdin \
     <<<"$DEVICE_VOUCHER"
 docker compose exec manufacturer \
-    curl --silent --show-error --request POST \
-    http://owner:8043/api/v1/owner/vouchers \
-    --data-binary "$DEVICE_VOUCHER"
+    curl \
+        --silent \
+        --show-error \
+        --request POST \
+        --header 'Content-Type: application/x-pem-file' \
+        http://owner:8043/api/v2/vouchers \
+        --data-binary "$DEVICE_VOUCHER"
 # observe the logs until TO0 completed successfully.
 # NB the logs should end with something like:
 #       [22:23:24] INFO: successfully registered 'RVTO2Addr' to rendezvous server
@@ -162,10 +178,13 @@ Show the device state from the Owner service viewpoint:
 ```bash
 DEVICE_OLD_GUID="$DEVICE_GUID"
 DEVICE_INFO="$(docker compose exec owner \
-    curl --silent --show-error --request GET \
-    http://owner:8043/api/v1/owner/devices \
-    --url-query "old_guid=$DEVICE_OLD_GUID")"
-DEVICE_GUID="$(jq -r '.[0].guid' <<<"$DEVICE_INFO")"
+    curl \
+        --silent \
+        --show-error \
+        --request GET \
+        http://owner:8043/api/v2/devices \
+        --url-query "old_guid=$DEVICE_OLD_GUID")"
+DEVICE_GUID="$(jq -r '.devices[0].guid' <<<"$DEVICE_INFO")"
 jq <<<"$DEVICE_INFO"
 ```
 
@@ -182,7 +201,7 @@ curl \
     http://localhost:8080/admin
 ```
 
-Poke the fdo services database:
+Poke the FDO services database:
 
 ```bash
 docker compose exec rendezvous sqlite3 /var/run/fdo-rendezvous/rendezvous.sqlite '.schema'
@@ -193,6 +212,20 @@ docker compose exec manufacturer sqlite3 /var/run/fdo-manufacturer/manufacturer.
 docker compose exec owner sqlite3 /var/run/fdo-owner/owner.sqlite '.schema'
 docker compose exec owner sqlite3 /var/run/fdo-owner/owner.sqlite '.dump'
 docker compose exec owner sqlite3 /var/run/fdo-owner/owner.sqlite 'select * from vouchers'
+```
+
+Poke the FDO services OpenAPI definitions:
+
+```bash
+docker compose exec rendezvous curl --silent http://rendezvous:8041/api/openapi.json | jq
+docker compose exec manufacturer curl --silent http://manufacturer:8038/api/openapi.json | jq
+docker compose exec owner curl --silent http://owner:8043/api/openapi.json | jq
+xdg-open http://localhost:8041/api/openapi.json | jq    # rendezvous
+xdg-open http://localhost:8041/api/docs/                # rendezvous
+xdg-open http://localhost:8038/api/openapi.json | jq    # manufacturer
+xdg-open http://localhost:8038/api/docs/                # manufacturer
+xdg-open http://localhost:8043/api/openapi.json | jq    # owner
+xdg-open http://localhost:8043/api/docs/                # owner
 ```
 
 Destroy the playground:

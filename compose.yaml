@@ -96,10 +96,27 @@ services:
         condition: service_healthy
       owner:
         condition: service_healthy
+    environment:
+      BOOT: file:///debian.img
+      TPM: Y
+    devices:
+      - /dev/kvm
+      - /dev/net/tun
+    cap_add:
+      - NET_ADMIN
+    stop_grace_period: 2m
     volumes:
-      - device:/device
+      - ~/.vagrant.d/boxes/debian-13-uefi-amd64/0.0.0/libvirt/box_0.img:/debian.img:ro
+      - device:/storage
     ports:
-      - 8080:8080
+      - 8006:8006 # VM web console.
+      - 8080:8080 # device web service.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://device:8080/health >/dev/null"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 5s
 
 volumes:
   certificates:

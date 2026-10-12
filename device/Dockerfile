@@ -14,20 +14,22 @@ RUN go mod download
 COPY *.go ./
 RUN go build -o device -ldflags="-s -w" -trimpath
 
-FROM debian:trixie-slim
-RUN <<EOF
-#!/bin/bash
+# see https://github.com/qemus/qemu
+FROM qemux/qemu:7.50
+RUN <<RUN_EOF
+#!/usr/bin/bash
 set -euxo pipefail
 apt-get update
-apt-get install -y --no-install-recommends \
-    ca-certificates \
-    curl \
-    iproute2 \
-    openssl \
-    procps \
-    sqlite3
+apt-get -y install --no-install-recommends \
+    openssh-client
+apt-get clean
 rm -rf /var/lib/apt/lists/*
-EOF
-COPY --from=build-fdo-client /src/go-fdo-client /usr/local/bin/go-fdo-client
-COPY --from=build /src/device /usr/local/bin/device
-ENTRYPOINT ["device"]
+RUN_EOF
+RUN <<RUN_EOF
+#!/usr/bin/bash
+set -euxo pipefail
+sed -i -E 's,http://\*.+,file://* ) ;;,g' /run/install.sh
+RUN_EOF
+COPY download.sh /run/download.sh
+COPY --from=build-fdo-client /src/go-fdo-client /files/go-fdo-client
+COPY --from=build /src/device /files/device

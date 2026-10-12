@@ -12,11 +12,13 @@ This can be tested [in docker compose](#usage-docker-compose).
 
 Install docker and docker compose.
 
+Install the [`debian-13-uefi-amd64` vagrant box](https://github.com/rgl/debian-vagrant).
+
 Recreate the playground:
 
 ```bash
 docker compose down --volumes --remove-orphans --timeout=0
-docker compose up --build --detach
+docker compose up --wait --build --detach
 ```
 
 Initialize the Rendezvous service:
@@ -84,19 +86,30 @@ Do the Device Initialization (DI) protocol:
 ```bash
 # NB the --device-info value will be included in the Device Ownership Voucher.
 # NB add the --debug cli flag to debug.
-docker compose exec device \
+# NB when the machine does not have a TPM, --blob /device/credential.blob could
+#    be used to store the device credential in a plaintext file.
+docker compose exec device ssh vagrant@device sudo \
     go-fdo-client \
     device-init \
     http://manufacturer:8038 \
     --key ec256 \
-    --blob /device/credential.blob \
+    --tpm /dev/tpmrm0 \
     --device-info '{"exampleKey":"exampleValue"}'
-DEVICE_GUID="$(docker compose exec device \
+DEVICE_GUID="$(docker compose exec device ssh vagrant@device sudo \
     go-fdo-client \
     print \
-    --blob /device/credential.blob \
+    --tpm /dev/tpmrm0 \
     | perl -ne 'print "$1\n" if /^\s*GUID\s+([0-9a-f]+)$/i')"
 echo "Device GUID: $DEVICE_GUID"
+```
+
+Show information about the [public Device Credential structure (aka DCTPM)](https://github.com/fido-device-onboard/go-fdo/blob/main/tpm/credential.go) stored on the TPM non-volatile (NV) storage:
+
+```bash
+docker compose exec device ssh vagrant@device sudo \
+    tpm2 getcap handles-nv-index
+docker compose exec device ssh vagrant@device sudo \
+    tpm2 nvreadpublic 0x01D10001
 ```
 
 Upload the secret Device Ownership Voucher to the Owner service:
@@ -153,24 +166,27 @@ Prepare the device to be onboarded:
 # NB this will be uploaded to the owner service as one of the last steps of the
 #    onboard process, by the fdo.upload FDO ServiceInfo Module (fsim), as
 #    declared in the owner.yaml file.
-docker compose exec device \
-    bash -euc 'umask 077 && openssl rand -out /device/admin-password.txt -hex 16'
+docker compose exec --no-tty device ssh vagrant@device sudo bash -eux - <<EOF
+install -m 700 -d /device
+umask 077
+openssl rand -out /device/admin-password.txt -hex 16
+EOF
 ```
 
 Onboard the device:
 
 ```bash
 # NB add the --debug cli flag to debug.
-docker compose exec device \
+docker compose exec device ssh vagrant@device sudo \
     go-fdo-client \
     onboard \
     --key ec256 \
     --kex ECDH256 \
-    --blob /device/credential.blob
-docker compose exec device \
+    --tpm /dev/tpmrm0
+docker compose exec device ssh vagrant@device sudo \
     go-fdo-client \
     print \
-    --blob /device/credential.blob
+    --tpm /dev/tpmrm0
 ```
 
 Show the device state from the Owner service viewpoint:
@@ -193,12 +209,13 @@ Access the Device Admin Page from the Owner service viewpoint:
 ```bash
 DEVICE_ADMIN_PASSWORD="$(docker compose exec owner \
     cat "/var/run/fdo-owner/device-files/$DEVICE_GUID/admin-password.txt")"
-curl \
+docker compose exec owner \
+    curl \
     --silent \
     --show-error \
     --request GET \
     --user "admin:$DEVICE_ADMIN_PASSWORD" \
-    http://localhost:8080/admin
+    http://device:8080/admin
 ```
 
 Poke the FDO services database:

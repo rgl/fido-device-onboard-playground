@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/subtle"
 	"fmt"
@@ -13,13 +14,32 @@ import (
 )
 
 func getFDOState() string {
-	if _, err := os.Stat("/device/credential.blob"); err != nil {
+	output, err := exec.Command(
+		"tpm2",
+		"getcap",
+		"handles-nv-index",
+	).CombinedOutput()
+	if err != nil {
+		return fmt.Sprintf("ERROR: %v\n%s", err, output)
+	}
+	found := false
+	scanner := bufio.NewScanner(bytes.NewReader(output))
+	for scanner.Scan() {
+		if strings.TrimSpace(scanner.Text()) == "- 0x1D10001" {
+			found = true
+			break
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return fmt.Sprintf("ERROR scanning output: %v", err)
+	}
+	if !found {
 		return "device not yet initialized"
 	}
-	output, err := exec.Command(
+	output, err = exec.Command(
 		"go-fdo-client",
 		"print",
-		"--blob", "/device/credential.blob",
+		"--tpm", "/dev/tpmrm0",
 	).CombinedOutput()
 	if err != nil {
 		return fmt.Sprintf("ERROR: %v\n%s", err, output)
@@ -70,9 +90,14 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "OK")
+}
+
 func main() {
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/admin", adminHandler)
+	http.HandleFunc("/health", healthHandler)
 
 	fmt.Println("Server starting on http://localhost:8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {

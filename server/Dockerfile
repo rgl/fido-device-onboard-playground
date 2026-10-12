@@ -1,8 +1,8 @@
-# syntax=docker.io/docker/dockerfile:1.27
+# syntax=docker.io/docker/dockerfile:1.28
 
 # see https://github.com/fido-device-onboard/go-fdo-server
-# see https://github.com/fido-device-onboard/go-fdo-server/tree/a1dfe4cf17a8a4736bf4bd56644b900bc054a150 # 2026-08-31T14:57:14.000Z
-FROM golang:1.27.1-trixie AS build
+# see https://github.com/fido-device-onboard/go-fdo-server/tree/9469c980914f3fdb5ab86b10620e852ea2951e8a # 2026-10-08T12:16:37.000Z
+FROM golang:1.27.2-trixie AS build
 RUN <<RUN_EOF
 #!/bin/bash
 set -euxo pipefail
@@ -22,12 +22,12 @@ apt-get install -y --no-install-recommends \
     nodejs=24.21.0-*
 RUN_EOF
 WORKDIR /src
-RUN curl -L https://github.com/fido-device-onboard/go-fdo-server/archive/a1dfe4cf17a8a4736bf4bd56644b900bc054a150.tar.gz | tar xz --strip-components=1
+RUN curl -L https://github.com/fido-device-onboard/go-fdo-server/archive/9469c980914f3fdb5ab86b10620e852ea2951e8a.tar.gz | tar xz --strip-components=1
 RUN make build
 
 # see https://github.com/mmartinv/go-fdo-tool
 # see https://github.com/mmartinv/go-fdo-tool/tree/7b2014534039611ed854178b7368dd2fcd210a2c # 2026-07-20T05:39:53.000Z
-FROM golang:1.27.1-trixie AS build-go-fdo-tool
+FROM golang:1.27.2-trixie AS build-go-fdo-tool
 WORKDIR /src
 RUN curl -L https://github.com/mmartinv/go-fdo-tool/archive/7b2014534039611ed854178b7368dd2fcd210a2c.tar.gz | tar xz --strip-components=1
 RUN go build -o go-fdo-tool -ldflags="-w -s" -trimpath

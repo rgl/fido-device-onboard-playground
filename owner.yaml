@@ -1,4 +1,4 @@
-# see https://github.com/fido-device-onboard/go-fdo-server/blob/a1dfe4cf17a8a4736bf4bd56644b900bc054a150/test/ci/test-fsim-config.sh
+# see https://github.com/fido-device-onboard/go-fdo-server/blob/9469c980914f3fdb5ab86b10620e852ea2951e8a/test/ci/test-fsim-config.sh
 owner:
   service_info:
     fsims:

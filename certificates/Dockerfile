@@ -1,4 +1,4 @@
-# syntax=docker.io/docker/dockerfile:1.27
+# syntax=docker.io/docker/dockerfile:1.28
 
 FROM debian:trixie-slim
 RUN <<EOF
